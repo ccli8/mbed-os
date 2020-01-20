@@ -12619,6 +12619,7 @@
         "trustzone": true,
         "supported_toolchains": [
             "ARMC6",
+            "GCC_ARM",
             "IAR"
         ],
         "extra_labels_add": [
@@ -12650,7 +12651,9 @@
         "core": "Cortex-M23",
         "trustzone": true,
         "supported_toolchains": [
-            "ARMC6"
+            "ARMC6",
+            "GCC_ARM",
+            "IAR"
         ],
         "extra_labels_add": [
             "M23_S"
@@ -12680,6 +12683,7 @@
         "core": "Cortex-M23-NS",
         "supported_toolchains": [
             "ARMC6",
+            "GCC_ARM",
             "IAR"
         ],
         "tfm.level": 1,
@@ -12716,7 +12720,9 @@
         ],
         "core": "Cortex-M23",
         "supported_toolchains": [
-            "ARMC6"
+            "ARMC6",
+            "GCC_ARM",
+            "IAR"
         ],
         "tfm.level": 1,
         "extra_labels_add": [
