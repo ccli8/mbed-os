@@ -11812,6 +11812,7 @@
             "SPI",
             "SPISLAVE",
             "SPI_ASYNCH",
+            "QSPI",
             "FLASH",
             "CAN",
             "EMAC",

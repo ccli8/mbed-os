@@ -133,4 +133,15 @@ struct can_s {
 
 #include "gpio_object.h"
 
+struct qspi_s {
+    QSPIName qspi;
+    PinName pin_data0;
+    PinName pin_data1;
+    PinName pin_data2;
+    PinName pin_data3;
+    PinName pin_sclk;
+    PinName pin_ssel;
+    gpio_t ssel;
+};
+
 #endif

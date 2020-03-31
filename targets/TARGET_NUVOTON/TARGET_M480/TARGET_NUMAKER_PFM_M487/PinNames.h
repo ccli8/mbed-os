@@ -109,6 +109,14 @@ typedef enum {
     BUTTON1 = SW2,
     BUTTON2 = SW3,
 
+    // QSPI FLASH pins
+    QSPI_FLASH1_IO0 = PC_0,
+    QSPI_FLASH1_IO1 = PC_1,
+    QSPI_FLASH1_IO2 = PC_4,
+    QSPI_FLASH1_IO3 = PC_5,
+    QSPI_FLASH1_SCK = PC_2,
+    QSPI_FLASH1_CSN = PC_3,
+
     // Force PinName to 32-bit required by NU_PINNAME_BIND(...)
     FORCE_ENUM_PINNAME_32BIT = 0x7FFFFFFF,
 

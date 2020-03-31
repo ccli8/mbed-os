@@ -128,6 +128,11 @@ typedef enum {
 } SPIName;
 
 typedef enum {
+    QSPI_0 = (int) NU_MODNAME(QSPI0_BASE, 0, 0),
+    QSPI_1 = (int) NU_MODNAME(QSPI1_BASE, 1, 0),
+} QSPIName;
+
+typedef enum {
     I2C_0 = (int) NU_MODNAME(I2C0_BASE, 0, 0),
     I2C_1 = (int) NU_MODNAME(I2C1_BASE, 1, 0),
     I2C_2 = (int) NU_MODNAME(I2C2_BASE, 2, 0),
