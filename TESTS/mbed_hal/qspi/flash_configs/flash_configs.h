@@ -84,6 +84,10 @@
 #elif   defined(TARGET_CY8CPROTO_064_SB)
 #include "S25FL128S_config.h"
 
+#elif   defined(TARGET_NUMAKER_PFM_M487) ||         \
+        defined(TARGET_NUMAKER_IOT_M487)
+#include "W25Q32JV_config.h"
+
 #endif
 
 #endif // MBED_FLASH_CONFIGS_H
