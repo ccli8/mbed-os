@@ -262,10 +262,14 @@ void SPI::unlock()
 
 void SPI::deselect()
 {
-    if (--_select_count == 0) {
+    if (_select_count) {
+        if (--_select_count == 0) {
+            _set_ssel(1);
+        }
+        unlock();
+    } else {
         _set_ssel(1);
     }
-    unlock();
 }
 
 void SPI::set_default_write_value(char data)
