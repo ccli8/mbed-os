@@ -1276,7 +1276,17 @@ void CAN_CLR_INT_PENDING_BIT(CAN_T *tCAN, uint8_t u32MsgNum)
     {
     }
 
-    tCAN->IF[u32MsgIfNum].CMASK = CAN_IF_CMASK_CLRINTPND_Msk | CAN_IF_CMASK_TXRQSTNEWDAT_Msk;
+    /* Enable bottom-half processing
+     *
+     * Bottom-half processing flow:
+     * 1. CAN_CLR_INT_PENDING_BIT(...) in interrupt context
+     * 2. CAN_Receive(...) in thread context
+     *
+     * To enable it, we cannot clear NewDat flag in CAN_CLR_INT_PENDING_BIT(...).
+     * Otherwise, CAN_IsNewDataReceived(...) will be failed in the CAN_Receive(...) call.
+     */
+    //tCAN->IF[u32MsgIfNum].CMASK = CAN_IF_CMASK_CLRINTPND_Msk | CAN_IF_CMASK_TXRQSTNEWDAT_Msk;
+    tCAN->IF[u32MsgIfNum].CMASK = CAN_IF_CMASK_CLRINTPND_Msk;
     tCAN->IF[u32MsgIfNum].CREQ = 1ul + u32MsgNum;
 
     ReleaseIF(tCAN, u32MsgIfNum);

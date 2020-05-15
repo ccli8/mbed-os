@@ -151,7 +151,6 @@ static void can_irq(CANName name, int id)
                 can1_irq_handler(can_irq_ids[id], IRQ_TX);
             else
                 can0_irq_handler(can_irq_ids[id], IRQ_TX);
-
         }
 
         /**************************/
@@ -172,11 +171,15 @@ static void can_irq(CANName name, int id)
         }
     } else if (u8IIDRstatus!=0) {
 
+        /* TODO: Move IRQ_TX/IRQ_RX here to decrease fake interrupts */
+        #if 0
         if(id)
             can1_irq_handler(can_irq_ids[id], IRQ_OVERRUN);
         else
             can0_irq_handler(can_irq_ids[id], IRQ_OVERRUN);
+        #endif
 
+        /* NOTE: Make sure NewDat flag is not cleared in CAN_CLR_INT_PENDING_BIT(...). */
         CAN_CLR_INT_PENDING_BIT(can, ((can->IIDR) -1));      /* Clear Interrupt Pending */
 
     } else if(can->WU_STATUS == 1) {
