@@ -29,22 +29,26 @@ if (DOMAIN_NS) {
 
 /* Resolve non-secure ROM start */
 if (! isdefinedsymbol(MBED_ROM_START)) {
-    error "MBED_ROM_START not define";
+    /* FIXME: Workaround to cmake build doesn't generate this symbol yet */
+    define MBED_ROM_START               = 0x10070400;
 }
 
 /* Resolve non-secure ROM size */
 if (! isdefinedsymbol(MBED_ROM_SIZE)) {
-    error "MBED_ROM_SIZE not define";
+    /* FIXME: Workaround to cmake build doesn't generate this symbol yet */
+    define MBED_ROM_SIZE                = 0x8F400;
 }
 
 /* Resolve non-secure RAM start */
 if (! isdefinedsymbol(MBED_RAM_START)) {
-    error "MBED_RAM_START not define";
+    /* FIXME: Workaround to cmake build doesn't generate this symbol yet */
+    define MBED_RAM_START               = 0x30014000;
 }
 
 /* Resolve non-secure RAM size */
 if (! isdefinedsymbol(MBED_RAM_SIZE)) {
-    error "MBED_RAM_SIZE not define";
+    /* FIXME: Workaround to cmake build doesn't generate this symbol yet */
+    define MBED_RAM_SIZE                = 0x2C000;
 }
 
 }

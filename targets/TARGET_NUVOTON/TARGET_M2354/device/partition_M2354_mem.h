@@ -37,22 +37,26 @@
 
 /* Resolve non-secure ROM start */
 #ifndef MBED_ROM_START
-#error "MBED_ROM_START not define"
+/* FIXME: Workaround to cmake build doesn't generate this symbol yet */
+#define MBED_ROM_START          0x10070400
 #endif
 
 /* Resolve non-secure ROM size */
 #ifndef MBED_ROM_SIZE
-#error "MBED_ROM_SIZE not define"
+/* FIXME: Workaround to cmake build doesn't generate this symbol yet */
+#define MBED_ROM_SIZE           0x8F400
 #endif
 
 /* Resolve non-secure RAM start */
 #ifndef MBED_RAM_START
-#error "MBED_RAM_START not define"
+/* FIXME: Workaround to cmake build doesn't generate this symbol yet */
+#define MBED_RAM_START          0x30014000
 #endif
 
 /* Resolve non-secure RAM size */
 #ifndef MBED_RAM_SIZE
-#error "MBED_RAM_SIZE not define"
+/* FIXME: Workaround to cmake build doesn't generate this symbol yet */
+#define MBED_RAM_SIZE           0x2C000
 #endif
 
 #endif
