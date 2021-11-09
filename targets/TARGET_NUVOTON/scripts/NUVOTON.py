@@ -106,8 +106,9 @@ def tfm_sign_image(tfm_import_path, signing_key, signing_key_1, non_secure_bin):
         "IMAGE_MACRO_PATH",
         "--public-key-format",
         'full',
+        # Must align with program unit
         "--align",
-        '1',
+        '4',
         # Reasons for removing padding and boot magic option "--pad":
         # 1. PSA FWU API psa_fwu_install() will be responsible for writing boot magic to enable upgradeable.
         # 2. The image size gets smaller instead of slot size.
@@ -115,7 +116,11 @@ def tfm_sign_image(tfm_import_path, signing_key, signing_key_1, non_secure_bin):
         "--pad-header",
         "-H",
         '0x400',
-        "--overwrite-only",
+        # Without "--pad", unnecessary to specify "--overwrite-only" or "--max-sectors".
+        # With "--pad", which one is necessary is determined by MCUboot upgrade strategy, 'OVERWRITE_ONLY' or 'SWAP'.
+        #"--overwrite-only",
+        #"--max-sectors",
+        #'512',
         "-s",
         'auto', # Or modified_timestamp
         "-d",

@@ -147,6 +147,8 @@ Try to get it from `trusted-firmware-m/bl2/ext/mcuboot/root-RSA-3072.pem` instea
 
 ## PSA Firmware Update
 
+Refer to [PSA Firmware Update API](https://github.com/ARMmbed/mbed-os/blob/master/platform/FEATURE_EXPERIMENTAL_API/FEATURE_PSA/TARGET_TFM/TARGET_TFM_LATEST/include/psa/update.h) for details.
+
 ### Requirement
 
 -   SD card: Used for update staging area according to above TF-M build configurations.
@@ -159,3 +161,8 @@ They are to write to update staging area through PSA Firmware Update API for fir
 -   `tfm_s_update.bin`: TF-M secure binary file for update separately when multiple image boot is enabled
 -   `<application>_update.bin`: Mbed non-secure binary file for update separately when multiple image boot is enabled or
     combined TF-M secure+Mbed non-secure binary file for update together when single image boot is enabled
+
+### Confirming firmware update
+
+After firmware update in reset, don't forget to invoke `psa_fwu_accept()` if self-test is OK or just no self-test.
+The `psa_fwu_accept()` call gets to be reckoned with when firmware update rollback is enabled, or firmware will roll back to original version in next reset.
