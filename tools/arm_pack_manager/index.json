@@ -189330,6 +189330,82 @@
         "sub_family": "M480",
         "vendor": "Nuvoton:18"
     }, 
+    "M467HJHAE": {
+        "algorithms": [
+            {
+                "default": false, 
+                "file_name": "Flash/M460_LD_8.FLM", 
+                "ram_size": null, 
+                "ram_start": null, 
+                "size": 8192, 
+                "start": 252706816
+            }, 
+            {
+                "default": true, 
+                "file_name": "Flash/M460_AP_1M.FLM", 
+                "ram_size": null, 
+                "ram_start": null, 
+                "size": 1048576, 
+                "start": 0
+            }
+        ], 
+        "family": "NuMicro M4 Family",
+        "from_pack": {
+            "pack": "NuMicro_DFP", 
+            "url": "http://www.nuvoton.com/hq/enu/Documents/KEILSoftwarePack", 
+            "vendor": "Nuvoton", 
+            "version": "1.3.13"
+        }, 
+        "memories": {
+            "IRAM1": {
+                "access": {
+                    "execute": false, 
+                    "non_secure": false, 
+                    "non_secure_callable": false, 
+                    "peripheral": false, 
+                    "read": true, 
+                    "secure": false, 
+                    "write": true
+                }, 
+                "default": true, 
+                "size": 524288, 
+                "start": 536870912, 
+                "startup": false
+            }, 
+            "IROM1": {
+                "access": {
+                    "execute": true, 
+                    "non_secure": false, 
+                    "non_secure_callable": false, 
+                    "peripheral": false, 
+                    "read": true, 
+                    "secure": false, 
+                    "write": false
+                }, 
+                "default": true, 
+                "size": 1048576, 
+                "start": 0, 
+                "startup": true
+            }
+        }, 
+        "name": "M467HJHAE", 
+        "processor": {
+            "Symmetric": {
+                "core": "CortexM4", 
+                "fpu": "SinglePrecision", 
+                "mpu": "NotPresent", 
+                "units": 1
+            }
+        }, 
+        "sectors": [
+            [
+                0, 
+                4096
+            ]
+        ], 
+        "sub_family": "M460",
+        "vendor": "Nuvoton:18"
+    }, 
     "M4LEDLE6AE": {
         "algorithms": [
             {
