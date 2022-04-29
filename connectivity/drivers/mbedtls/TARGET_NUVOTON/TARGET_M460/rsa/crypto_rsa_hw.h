@@ -101,6 +101,18 @@ int crypto_rsa_crypt(mbedtls_rsa_context *ctx,
                      const unsigned char *input,
                      unsigned char *output);
 
+/**
+ * \brief           Abort Crypto RSA H/W
+ *
+ * \param ctx       The initialized RSA context to use.
+ * \param timeout_us    Timeout in microseconds.
+ *
+ * \return          \c 0 on success.
+ * \return          A non-zero error code on failure.
+ */
+int crypto_rsa_abort(mbedtls_rsa_context *ctx,
+                     uint32_t timeout_us);
+
 #ifdef __cplusplus
 }
 #endif

@@ -298,30 +298,7 @@ bool crypto_rsa_wait(void)
 
 bool crypto_rsa_wait2(int32_t timeout_us)
 {
-    /* NOTE: Without this, RSA H/W will trap or output result incorrect,
-     *       esp with 4096 key bits, CRT mode. Further complicating this,
-     *       compiler optimization level can influence. Doubt it results
-     *       from memory bus contention. However, it cannot reproduce in
-     *       BSP. */
-#if 1
-    /* Translate indefinite to extremely large */
-    if (timeout_us < 0) {
-        timeout_us = 0x7FFFFFFF;
-    }
-
-    struct nu_countdown_ctx_s ctx;
-    nu_countdown_init(&ctx, timeout_us);
-    while (CRPT->RSA_STS & CRPT_RSA_STS_BUSY_Msk) {
-        if (nu_countdown_expired(&ctx)) {
-            break;
-        }
-    }
-    nu_countdown_free(&ctx);
-
-    return crypto_submodule_wait(&crypto_rsa_done, 0);
-#else
     return crypto_submodule_wait(&crypto_rsa_done, timeout_us);
-#endif
 }
 
 bool crypto_dma_buff_compat(const void *buff, size_t buff_size, size_t size_aligned_to)

@@ -36,12 +36,34 @@
 #include "mbed_error.h"
 #include "mbed_toolchain.h"
 #include "nu_bitutil.h"
+#include "nu_timer.h"
 #include "crypto-misc.h"
 
 #include "crypto_rsa_hw.h"
 
+/* Enable workaround to unknown RSA H/W trap */
+#define NU_CRYPTO_RSA_ENABLE_TRAP_WORKAROUND
+
 /* Enable RSA debug */
 //#define NU_CRYPTO_RSA_ENABLE_DEBUG
+
+/* Unknown Crypto RSA H/W trap
+ *
+ * 1. RSA H/W will trap or output result incorrect, esp with 4096
+ *    key bits, CRT mode. Further complicating this, compiler
+ *    optimization level can influence. Doubt it results from memory
+ *    bus contention. However, it cannot reproduce in BSP.
+ * 2. Continuing above, esp with IAR, Crypto RSA H/W can trap more seriously.
+ *    Re-flash will fail unless Mass Erase.
+ *
+ * To address above trap, following BSP sample in no-RTOS context, RSA H/W
+ * is to operate in the environment with kernel scheduler locked.
+ */
+
+#if defined(NU_CRYPTO_RSA_ENABLE_TRAP_WORKAROUND)
+#include "cmsis_os2.h"
+#include "mbed_critical.h"
+#endif
 
 /* RSA context for DMA */
 static struct {
@@ -68,7 +90,7 @@ static struct {
         MBED_ALIGN(4) char  Q[RSA_KBUF_HLEN];   // Second prime factor
     } keyctx_hs;
 } rsa_hw_ctx_inst;
-
+                                     
 int crypto_rsa_init(mbedtls_rsa_context *ctx)
 {
     /* Acquire ownership of RSA H/W */
@@ -134,6 +156,11 @@ int crypto_rsa_crypt_capable(const mbedtls_rsa_context *ctx,
 {
     /* CRT is applicable only for decrypt operation */
     if (!decrypt && crt) {
+        return 0;
+    }
+
+    /* NOTE: Check above RSA H/W comment for disabling crt */
+    if (crt) {
         return 0;
     }
 
@@ -297,6 +324,12 @@ int crypto_rsa_crypt(mbedtls_rsa_context *ctx,
         goto cleanup;
     }
 
+    /* Enable RSA interrupt */
+    RSA_ENABLE_INT(CRPT);
+
+    /* For safe, recover from previous failure if ever */
+    MBEDTLS_MPI_CHK(crypto_rsa_abort(ctx, 5*1000*1000));
+
     /* NOTE: Driver (RSA_SetKey()/RSA_SetDMATransfer()) requests zero-padded
      *       hex string to configure DMA buffer (via Hex2Reg), but
      *       mbedtls_mpi_write_string() doesn't support this. Pre-clean
@@ -321,15 +354,71 @@ int crypto_rsa_crypt(mbedtls_rsa_context *ctx,
                        rsa_hw_ctx_inst.keyctx_hs.P,
                        rsa_hw_ctx_inst.keyctx_hs.Q);
 
-    /* Enable RSA interrupt */
-    RSA_ENABLE_INT(CRPT);
-
     /* Trigger and wait */
     crypto_rsa_prestart();
+
+#if defined(NU_CRYPTO_RSA_ENABLE_TRAP_WORKAROUND)
+    osKernelState_t kernel_state = osKernelGetState();
+    bool do_lock_kernel = true;
+
+    /* In interrupt-disabled context, so non-preemptive naturally */
+    if (!core_util_are_interrupts_enabled()) {
+        do_lock_kernel = false;
+    }
+
+    /* At pre-rtos stage, so non-preemptive naturally */
+    if ((kernel_state == osKernelInactive) || (kernel_state == osKernelReady)) {
+        do_lock_kernel = false;
+    }
+
+    /* osKernelLock() will error when kernel state is 'osKernelSuspended'. */
+    if (kernel_state == osKernelSuspended) {
+        do_lock_kernel = false;
+    }
+
+    int32_t lock_state;
+
+    /* Lock kernel scheduler and save previous lock state for restore */
+    if (do_lock_kernel) {
+        lock_state = osKernelLock();
+        if (lock_state == osError) {
+            MBED_ERROR1(MBED_MAKE_ERROR(MBED_MODULE_KERNEL, MBED_ERROR_CODE_UNKNOWN), "Unknown RTX error", lock_state);
+        }
+        MBED_ASSERT(lock_state >= 0);
+    }
+#endif
+
     RSA_Start(CRPT);
     mbedtls_printf("[CRPT][RSA] Crypto RSA ...\n");
-    rsa_done = crypto_rsa_wait();
+#if defined(NU_CRYPTO_RSA_ENABLE_TRAP_WORKAROUND)
+    /* Workaround to (IAR + straight crypto_rsa_wait2) trap */
+    uint32_t timeout_cnt = SystemCoreClock;  // 1s timeout
+    while (CRPT->RSA_STS & CRPT_RSA_STS_BUSY_Msk) {
+        if (--timeout_cnt == 0) {
+            break;
+        }
+    }
+    rsa_done = crypto_rsa_wait2(5*1000);    // 5ms timeout for instant check of the result
+#else
+    rsa_done = crypto_rsa_wait2(1000*1000); // 1s timeout
+#endif
     mbedtls_printf("[CRPT][RSA] Crypto RSA ... %s\n", rsa_done ? "Done" : "Error");
+
+#if defined(NU_CRYPTO_RSA_ENABLE_TRAP_WORKAROUND)
+    /* Restore previous lock state */
+    if (do_lock_kernel) {
+        lock_state = osKernelRestoreLock(lock_state);
+        if (lock_state == osError) {
+            MBED_ERROR1(MBED_MAKE_ERROR(MBED_MODULE_KERNEL, MBED_ERROR_CODE_UNKNOWN), "Unknown RTX error", lock_state);
+        }
+        MBED_ASSERT(lock_state >= 0);
+    }
+#endif
+
+    /* For safe, recover from current failure */
+    if (!rsa_done) {
+        crypto_rsa_abort(ctx, 5*1000*1000);
+    }
 
     /* Disable RSA interrupt */
     RSA_DISABLE_INT(CRPT);
@@ -349,6 +438,39 @@ cleanup:
 
     mbedtls_mpi_free(&M);
     mbedtls_mpi_free(&R);
+
+    /* Release ownership of RSA accelerator */
+    crypto_rsa_release();
+
+    return ret;
+}
+
+int crypto_rsa_abort(MBED_UNUSED mbedtls_rsa_context *ctx,
+                     uint32_t timeout_us)
+{
+    /* Acquire ownership of RSA H/W */
+    crypto_rsa_acquire();
+
+    int ret = MBEDTLS_ERR_ERROR_CORRUPTION_DETECTED;
+
+    CRPT->RSA_CTL = CRPT_RSA_CTL_STOP_Msk;
+    struct nu_countdown_ctx_s cd_ctx;
+    nu_countdown_init(&cd_ctx, timeout_us);
+    while (CRPT->RSA_STS & CRPT_RSA_STS_BUSY_Msk) {
+        if (nu_countdown_expired(&cd_ctx)) {
+            break;
+        }
+    }
+    nu_countdown_free(&cd_ctx);
+    if (CRPT->RSA_STS & CRPT_RSA_STS_BUSY_Msk) {
+        mbedtls_printf("[CRPT][RSA] Crypto RSA ... Busy\n");
+        ret = MBEDTLS_ERR_PLATFORM_HW_ACCEL_FAILED;
+        goto cleanup;
+    }
+
+    ret = 0;
+
+cleanup:
 
     /* Release ownership of RSA accelerator */
     crypto_rsa_release();

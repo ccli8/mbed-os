@@ -735,6 +735,7 @@ int mbedtls_rsa_public( mbedtls_rsa_context *ctx,
 #if defined(NU_CRYPTO_RSA_ENABLE)
     bool hw_go = false;
     bool hw_encrypt_norm_capable = false;
+    bool sw_fallback = false;
 #endif  /* NU_CRYPTO_RSA_ENABLE */
     size_t olen;
     mbedtls_mpi T;
@@ -768,7 +769,12 @@ int mbedtls_rsa_public( mbedtls_rsa_context *ctx,
     hw_go = hw_encrypt_norm_capable && ctx->hw_init;
     if (hw_encrypt_norm_capable && hw_go) {
         ret = crypto_rsa_encrypt_norm(ctx, input, output);
-        goto cleanup;
+        if (ret == 0) {
+            goto cleanup;
+        }
+
+        /* Fall back to S/W on H/W failure */
+        sw_fallback = true;
     }
 #endif  /* NU_CRYPTO_RSA_ENABLE */
 
@@ -786,7 +792,11 @@ cleanup:
 
 #if defined(NU_CRYPTO_RSA_ENABLE)
     if (hw_go) {
-        return ret;
+        /* Premature return on H/W success, or continue to do other S/W clean-up
+         * because it is involved as fallback. */
+        if (!sw_fallback) {
+            return ret;
+        }
     }
 #endif
 
@@ -898,6 +908,7 @@ int mbedtls_rsa_private( mbedtls_rsa_context *ctx,
 #if !defined(MBEDTLS_RSA_NO_CRT)
     bool hw_decrypt_crt_capable = false;
 #endif
+    bool sw_fallback = false;
 #endif  /* NU_CRYPTO_RSA_ENABLE */
     size_t olen;
 
@@ -1001,13 +1012,22 @@ int mbedtls_rsa_private( mbedtls_rsa_context *ctx,
     /* Go CRT if capable, or normal */
     if (hw_decrypt_crt_capable && hw_go) {
         ret = crypto_rsa_decrypt_crt(ctx, f_rng != NULL, input, output);
-        goto cleanup;
+        if (ret == 0) {
+            goto cleanup;
+        }
+
+        /* Fall back to H/W normal */
     }
 #endif    
 
     if (hw_decrypt_norm_capable && hw_go) {
         ret = crypto_rsa_decrypt_norm(ctx, f_rng != NULL, input, output);
-        goto cleanup;
+        if (ret == 0) {
+            goto cleanup;
+        }
+
+        /* Fall back to S/W on H/W failure */
+        sw_fallback = true;
     }
 #endif  /* NU_CRYPTO_RSA_ENABLE */
 
@@ -1145,7 +1165,11 @@ cleanup:
 
 #if defined(NU_CRYPTO_RSA_ENABLE)
     if (hw_go) {
-        return ret;
+        /* Premature return on H/W success, or continue to do other S/W clean-up
+         * because it is involved as fallback. */
+        if (!sw_fallback) {
+            return ret;
+        }
     }
 #endif
 
