@@ -2661,6 +2661,7 @@ int mbedtls_ecp_mul_restartable( mbedtls_ecp_group *grp, mbedtls_ecp_point *R,
 #if defined(NU_CRYPTO_ECC_ENABLE)
     bool hw_go = false;
     bool hw_capable = false;
+    bool sw_fallback = false;
 #endif
 #if defined(MBEDTLS_ECP_INTERNAL_ALT)
     char is_grp_capable = 0;
@@ -2678,7 +2679,12 @@ int mbedtls_ecp_mul_restartable( mbedtls_ecp_group *grp, mbedtls_ecp_point *R,
     hw_go = hw_capable && grp->hw_init;
     if (hw_go) {
         ret = crypto_ecc_run_eccop_mul(grp, R, m, P, f_rng != NULL);
-        goto cleanup;
+        if (ret == 0) {
+            goto cleanup;
+        }
+
+        /* Fall back to S/W on H/W failure */
+        sw_fallback = true;
     }
 #endif
 
@@ -2722,7 +2728,11 @@ cleanup:
 
 #if defined(NU_CRYPTO_ECC_ENABLE)
     if (hw_go) {
-        return ret;
+        /* Premature return on H/W success, or continue to do other S/W clean-up
+         * because it is involved as fallback. */
+        if (!sw_fallback) {
+            return ret;
+        }
     }
 #endif
 
@@ -2850,6 +2860,7 @@ int mbedtls_ecp_muladd_restartable(
 #if defined(NU_CRYPTO_ECC_ENABLE)
     bool hw_go = false;
     bool hw_capable = false;
+    bool sw_fallback = false;
     mbedtls_ecp_point R1, R2;
 #endif
     mbedtls_ecp_point mP;
@@ -2877,10 +2888,30 @@ int mbedtls_ecp_muladd_restartable(
     if (hw_go) {
         mbedtls_ecp_point_init(&R1);
         mbedtls_ecp_point_init(&R2);
-        MBEDTLS_MPI_CHK(crypto_ecc_run_eccop_mul(grp, &R1, m, P, false));
-        MBEDTLS_MPI_CHK(crypto_ecc_run_eccop_mul(grp, &R2, n, Q, false));
-        MBEDTLS_MPI_CHK(crypto_ecc_run_eccop_add(grp, R, &R1, &R2, false));
-        goto cleanup;
+        do {
+            /* R1 = m*P */
+            ret = crypto_ecc_run_eccop_mul(grp, &R1, m, P, false);
+            if (ret != 0) {
+                break;
+            }
+
+            /* R2 = n*Q */
+            ret = crypto_ecc_run_eccop_mul(grp, &R2, n, Q, false);
+            if (ret != 0) {
+                break;
+            }
+
+            /* R = m*P + n*Q = R1 + R2 */
+            ret = crypto_ecc_run_eccop_add(grp, R, &R1, &R2, false);
+            if (ret != 0) {
+                break;
+            }
+
+            goto cleanup;
+        } while (0);
+
+        /* Fall back to S/W on H/W failure */
+        sw_fallback = true;
     }
 #endif
 
@@ -2946,7 +2977,11 @@ cleanup:
     if (hw_go) {
         mbedtls_ecp_point_free(&R1);
         mbedtls_ecp_point_free(&R2);
-        return ret;
+        /* Premature return on H/W success, or continue to do other S/W clean-up
+         * because it is involved as fallback. */
+        if (!sw_fallback) {
+            return ret;
+        }
     }
 #endif
 #if defined(MBEDTLS_ECP_INTERNAL_ALT)

@@ -32,6 +32,7 @@
 #include "mbed_error.h"
 #include "mbed_toolchain.h"
 #include "nu_bitutil.h"
+#include "nu_timer.h"
 #include "crypto-misc.h"
 #include "crypto_ecc_hw.h"
 #include "ecp_helper.h"
@@ -58,8 +59,8 @@
  *
  * In at least secp192r1 curve, following point operations will cause engine to trap:
  * 1. P + P. Workaround by 2*P.
- * 2. (order - 1) * G with SCAP enabled. Doubt resulting from computing
- *    close to (order)G, that is, zero point. Cause is unknown.
+ * 2. m*P with SCAP enabled, esp m = (order - 1). Cause is unknown. Cannot work
+ *    around by fallback to S/W, with following operations being data error easily.
  */
 
 int crypto_ecc_capable(const mbedtls_ecp_group *grp)
@@ -144,8 +145,7 @@ int crypto_ecc_run_eccop_mul(const mbedtls_ecp_group *grp,
                              const mbedtls_ecp_point *P,
                              bool blinding)
 {
-    /* NOTE: Engine can trap when SCAP is enabled and computing is close
-     *       to (order)G, that is, zero point. Cause is unknown. */
+    /* NOTE: Engine can trap when SCAP is enabled. Cause is unknown. */
     blinding = false;
     return crypto_ecc_run_eccop(grp, R, m, P, NULL, NULL, ECCOP_POINT_MUL, blinding);
 }
@@ -287,6 +287,12 @@ int crypto_ecc_run_eccop(const mbedtls_ecp_group *grp,
         goto cleanup;
     }
 
+    /* Enable ECC interrupt */
+    ECC_ENABLE_INT(CRPT);
+
+    /* For safe, recover from previous failure if ever */
+    MBEDTLS_MPI_CHK(crypto_ecc_abort(5*1000*1000));
+
     /* Configure ECC curve coefficients A/B */
     /* Special case for A = -3 */
     if (grp->A.p == NULL) {
@@ -357,12 +363,20 @@ int crypto_ecc_run_eccop(const mbedtls_ecp_group *grp,
         (blinding ? CRPT_ECC_CTL_SCAP_Msk : 0) |    // SCAP
         0;
 
-    /* Enable ECC interrupt */
-    ECC_ENABLE_INT(CRPT);
-
     crypto_ecc_prestart();
+#if !defined(MBEDTLS_ECP_INTERNAL_ALT)
+    mbedtls_printf("[CRPT][ECC] Crypto ECC ...\n");
+#endif
     CRPT->ECC_CTL = ecc_ctl;
-    ecc_done = crypto_ecc_wait();
+    ecc_done = crypto_ecc_wait2(1000*1000); // 1s timeout
+#if !defined(MBEDTLS_ECP_INTERNAL_ALT)
+    mbedtls_printf("[CRPT][ECC] Crypto ECC ... %s\n", ecc_done ? "Done" : "Error");
+#endif
+
+    /* For safe, recover from current failure */
+    if (!ecc_done) {
+        crypto_ecc_abort(5*1000*1000);
+    }
 
     /* Disable ECC interrupt */
     ECC_DISABLE_INT(CRPT);
@@ -438,6 +452,12 @@ int crypto_ecc_run_modop(mbedtls_mpi *r,
 
     mbedtls_mpi_init(&N_);
 
+    /* Enable ECC interrupt */
+    ECC_ENABLE_INT(CRPT);
+
+    /* For safe, recover from previous failure if ever */
+    MBEDTLS_MPI_CHK(crypto_ecc_abort(5*1000*1000));
+
     /* Use ECP_HELPER_MPI_NORM(Np, N1, N_, P) to get normalized MPI
      *
      * N_: Holds normalized MPI if the passed-in MPI N1 is not
@@ -471,12 +491,20 @@ int crypto_ecc_run_modop(mbedtls_mpi *r,
         (pbits << CRPT_ECC_CTL_CURVEM_Pos) |        // Key length of elliptic curve
         0;
 
-    /* Enable ECC interrupt */
-    ECC_ENABLE_INT(CRPT);
-
     crypto_ecc_prestart();
+#if !defined(MBEDTLS_ECP_INTERNAL_ALT)
+    mbedtls_printf("[CRPT][ECC] Crypto Modulus ...\n");
+#endif
     CRPT->ECC_CTL = ecc_ctl;
-    ecc_done = crypto_ecc_wait();
+    ecc_done = crypto_ecc_wait2(1000*1000); // 1s timeout
+#if !defined(MBEDTLS_ECP_INTERNAL_ALT)
+    mbedtls_printf("[CRPT][ECC] Crypto Modulus ... %s\n", ecc_done ? "Done" : "Fallback");
+#endif
+
+    /* For safe, recover from current failure */
+    if (!ecc_done) {
+        crypto_ecc_abort(5*1000*1000);
+    }
 
     /* Disable ECC interrupt */
     ECC_DISABLE_INT(CRPT);
@@ -554,6 +582,38 @@ int crypto_ecc_mpi_write_eccreg( const mbedtls_mpi *x, volatile uint32_t *eccreg
     crypto_zeroize32((uint32_t *) eccreg + n, eccreg_num - n);
     
     return 0;
+}
+
+int crypto_ecc_abort(uint32_t timeout_us)
+{
+    /* Acquire ownership of ECC H/W */
+    crypto_ecc_acquire();
+
+    int ret = MBEDTLS_ERR_ERROR_CORRUPTION_DETECTED;
+
+    CRPT->ECC_CTL = CRPT_ECC_CTL_STOP_Msk;
+    struct nu_countdown_ctx_s cd_ctx;
+    nu_countdown_init(&cd_ctx, timeout_us);
+    while (CRPT->ECC_STS & CRPT_ECC_STS_BUSY_Msk) {
+        if (nu_countdown_expired(&cd_ctx)) {
+            break;
+        }
+    }
+    nu_countdown_free(&cd_ctx);
+    if (CRPT->ECC_STS & CRPT_ECC_STS_BUSY_Msk) {
+        mbedtls_printf("[CRPT][ECC] Crypto ECC ... Busy\n");
+        ret = MBEDTLS_ERR_PLATFORM_HW_ACCEL_FAILED;
+        goto cleanup;
+    }
+
+    ret = 0;
+
+cleanup:
+
+    /* Release ownership of ECC accelerator */
+    crypto_ecc_release();
+
+    return ret;
 }
 
 #endif /* MBEDTLS_ECP_ALT || MBEDTLS_ECP_INTERNAL_ALT */

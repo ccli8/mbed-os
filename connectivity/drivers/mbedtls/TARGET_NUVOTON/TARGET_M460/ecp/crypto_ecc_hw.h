@@ -179,6 +179,16 @@ int crypto_ecc_mpi_read_eccreg( mbedtls_mpi *X, const volatile uint32_t *eccreg,
  */
 int crypto_ecc_mpi_write_eccreg( const mbedtls_mpi *X, volatile uint32_t *eccreg, size_t eccreg_num );
 
+/**
+ * \brief           Abort Crypto ECC H/W
+ *
+ * \param timeout_us    Timeout in microseconds.
+ *
+ * \return          \c 0 on success.
+ * \return          A non-zero error code on failure.
+ */
+int crypto_ecc_abort(uint32_t timeout_us);
+
 #ifdef __cplusplus
 }
 #endif
