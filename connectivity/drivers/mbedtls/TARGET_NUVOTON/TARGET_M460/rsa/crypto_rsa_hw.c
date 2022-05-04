@@ -210,6 +210,8 @@ int crypto_rsa_crypt(mbedtls_rsa_context *ctx,
     size_t olen;
     uint32_t keybits;
 
+    //TESTTEST
+    crt = false;
     mbedtls_printf("[CRPT][RSA] decrypt=%d, crt=%d, blinding=%d\n", decrypt, crt, blinding);
 
     mbedtls_mpi M, R;
@@ -326,8 +328,8 @@ int crypto_rsa_crypt(mbedtls_rsa_context *ctx,
 
     /* Trigger and wait */
     crypto_rsa_prestart();
-    RSA_Start(CRPT);
     mbedtls_printf("[CRPT][RSA] Crypto RSA ...\n");
+    RSA_Start(CRPT);
     rsa_done = crypto_rsa_wait();
     mbedtls_printf("[CRPT][RSA] Crypto RSA ... %s\n", rsa_done ? "Done" : "Error");
 

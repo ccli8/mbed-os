@@ -386,6 +386,7 @@ static bool crypto_submodule_wait(volatile uint16_t *submodule_done, int32_t tim
         timeout_us = 0x7FFFFFFF;
     }
 
+#if 0
     struct nu_countdown_ctx_s ctx;
     nu_countdown_init(&ctx, timeout_us);
     while (! *submodule_done) {
@@ -394,6 +395,9 @@ static bool crypto_submodule_wait(volatile uint16_t *submodule_done, int32_t tim
         }
     }
     nu_countdown_free(&ctx);
+#else
+    while (! *submodule_done);
+#endif
 
     /* Ensure while loop above and subsequent code are not reordered */
     __DSB();
