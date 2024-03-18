@@ -43,6 +43,18 @@ int32_t tfm_ns_interface_dispatch(veneer_fn fn,
                                   uint32_t arg0, uint32_t arg1,
                                   uint32_t arg2, uint32_t arg3);
 
+/**
+ * \brief NS interface, Initialise the NS interface
+ *
+ * \details This function needs to be called from the NS world to
+ *          properly initialise the NS interface towards TF-M. This
+ *          function will initialise all the objects required for
+ *          runtime dispatching of TF-M requests to services
+ *
+ * \return  A value according to \ref enum tfm_status_e
+ */
+enum tfm_status_e tfm_ns_interface_init(void);
+
 #ifdef __cplusplus
 }
 #endif
