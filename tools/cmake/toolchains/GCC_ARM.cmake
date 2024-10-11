@@ -98,3 +98,12 @@ function(mbed_configure_memory_map target mapfile)
             "-Wl,-Map=${mapfile}"
     )
 endfunction()
+
+# Enable WHOLE_ARCHIVE feature to support weak symbol override by
+# static library. See:
+# https://discourse.cmake.org/t/error-when-crosscompiling-with-whole-archive-target-link/9394
+# https://cmake.org/cmake/help/latest/variable/CMAKE_LINK_LIBRARY_USING_FEATURE.html
+set(CMAKE_LINK_LIBRARY_USING_WHOLE_ARCHIVE
+"-Wl,--whole-archive" "<LINK_ITEM>" "-Wl,--no-whole-archive"
+)
+set(CMAKE_LINK_LIBRARY_USING_WHOLE_ARCHIVE_SUPPORTED TRUE)
